@@ -1,0 +1,5 @@
+* START * *
+* PQR A,B,C *
+LOOP XYZ X,Y,Z *
+* ABC &ARG3=DATA2,&ARG2=DATA1 *
+* END * *

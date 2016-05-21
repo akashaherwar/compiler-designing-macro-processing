@@ -1,0 +1,282 @@
+/*Name :Rohan Arsidha
+Class :TE-1
+Roll No :307008
+*/
+
+#include<stdio.h>
+#include<conio.h>
+#include<string.h>
+struct Instruction
+{
+	char lbl[20],mnem[20],op1[30],op2[30]; //Structure of Instruction
+};
+struct MNT
+{
+	char sno[4],name[20],index[4];    //Structure of MNT
+};
+struct MDT
+{
+	char lbl[20],mnem[20],op1[30],op2[30],sno[4];  //Structure of MDT
+};
+struct IC
+{
+	char lbl[20],mnem[20],op1[30],op2[30];  //Structure of IC
+};
+struct EC
+{
+	char lbl[20],mnem[20],op1[30],op2[30]; //Structure of Expanded Code
+};
+//Function Name :checkMNT
+//Arguments :MNT File,Macro name
+//Description :If Macro present in MNT return its MDT Index else -1
+int checkMNT(FILE *mnt,char *lbl)
+{
+	struct MNT m;
+	rewind(mnt);
+	while(fscanf(mnt,"%s %s %s",m.sno,m.name,m.index)!=EOF)
+	{
+		if(strcmp(m.name,lbl)==0)
+		return atoi(m.index);
+	}
+	return -1;
+}
+//Function Name :check
+//Arguments :operand
+//Description :checks whether operand is an argument during macro call
+int check(char *lbl)
+{
+	int j=1,k=0,index;
+	char temp[10];
+	if(lbl[0]=='#')
+	{
+		while(lbl[j]!='\0')
+		temp[k++]=lbl[j++];
+		index=atoi(temp);
+		return index;
+	}
+	else
+	return -1;
+}
+//Function Name :pass1
+//Arguments :Source File,MNT,MDT,IC
+//Description :Performs Pass 1 of Macroprocessor
+void pass1(FILE *fp,FILE *mnt,FILE * mdt,FILE *ic)
+{
+	int mntc=1,mdtc=1,i,j,flag=0;
+	char *ala[10],ch[10];
+	struct Instruction inc;
+	struct MNT m;
+	struct MDT d;
+	struct IC c;
+	rewind(fp);
+	while(fscanf(fp,"%s%s%s%s",inc.lbl,inc.mnem,inc.op1,inc.op2)!=EOF)
+	{
+		if(strcmp(inc.mnem,"MACRO")==0) //if MACRO pseudo-op
+		{
+			fscanf(fp,"%s%s%s%s",inc.lbl,inc.mnem,inc.op1,inc.op2);
+			if(checkMNT(mnt,inc.mnem)!=-1)                    //checks Macro name already exist
+			{                                                 //else make an entry in MNT
+				printf("\n %s already exists!!",inc.mnem);
+				break;
+			}
+			else
+			{
+				sprintf(m.sno,"%d",mntc++);
+				strcpy(m.name,inc.mnem);
+				sprintf(m.index,"%d",mdtc);
+				fprintf(mnt,"%s %s %s\n",m.sno,m.name,m.index);
+			}
+			i=0;
+			if(strcmp(inc.lbl,"*")!=0)
+			{
+				strcpy(ala[0],inc.lbl);
+			}
+			else
+			strcpy(ala[0],"-");
+			strcpy(d.op1,inc.op1);               //Prepares ALA
+			if(strcmp(inc.op1,"*")!=0)
+			{
+				ala[++i]=strtok(inc.op1,",");
+				while(ala[i])
+				{
+					ala[++i]=strtok(NULL,",");
+				}
+			}
+			sprintf(d.sno,"%d",mdtc++);
+			strcpy(d.lbl,inc.lbl);
+			strcpy(d.mnem,inc.mnem);
+			strcpy(d.op2,inc.op2);
+			fprintf(mdt,"%s %s %s %s %s\n",d.sno,d.lbl,d.mnem,d.op1,d.op2);
+			while(fscanf(fp,"%s%s%s%s",d.lbl,d.mnem,d.op1,d.op2)!=EOF)
+			{
+
+				sprintf(d.sno,"%d",mdtc++);
+				if(strcmp(d.mnem,"MEND")!=0)            //Substitute ALA index values in MDT
+				{                                       //until MEND pseudo-op occurs
+					strcpy(ch,ala[0]);
+					if(strcmp(d.lbl,ch)==0)
+					strcpy(d.lbl,"#0");
+					for(j=0;j<i;j++)
+					{
+						if(strcmp(d.op1,ala[j])==0)
+						sprintf(d.op1,"#%d",j);
+					}
+					for(j=0;j<i;j++)
+					{
+						if(strcmp(d.op2,ala[j])==0)
+						sprintf(d.op2,"#%d",j);
+					}
+					fprintf(mdt,"%s %s %s %s %s\n",d.sno,d.lbl,d.mnem,d.op1,d.op2);
+				}
+				else if(strcmp(d.mnem,"MACRO")==0||strcmp(d.mnem,"START")==0)
+				{
+				      fprintf(mdt,"Error Occured");      //if nested Macro or START occurs
+				      flag=1;
+				      break;
+				}
+				else
+				{
+				      fprintf(mdt,"%s %s %s %s %s\n",d.sno,d.lbl,d.mnem,d.op1,d.op2);
+				      break;
+				}
+			}
+			if(flag)
+			break;
+		}
+		if(strcmp(inc.mnem,"START")==0)
+		{
+			fprintf(ic,"%s %s %s %s\n",inc.lbl,inc.mnem,inc.op1,inc.op2);
+			while(fscanf(fp,"%s%s%s%s",inc.lbl,inc.mnem,inc.op1,inc.op2)!=EOF)  //Generation of IC
+			{
+				fprintf(ic,"%s %s %s %s\n",inc.lbl,inc.mnem,inc.op1,inc.op2);
+			}
+		}
+	}
+	rewind(mnt);
+	printf("\n\n MNT :\n");
+	printf("\nSr.no.\tName\tMDT Index\n");
+	while(fscanf(mnt,"%s %s %s",m.sno,m.name,m.index)!=EOF)
+	{
+		printf("%s\t%s\t%s\n",m.sno,m.name,m.index);
+	}
+	rewind(mdt);
+	printf("\n\n MDT :\n");
+	printf("\nSr.no.\t\tStatements\n");
+	while(fscanf(mdt,"%s %s %s %s %s",d.sno,d.lbl,d.mnem,d.op1,d.op2)!=EOF)
+	{
+		printf("%s\t%s %s %s %s\n",d.sno,d.lbl,d.mnem,d.op1,d.op2);
+	}
+	getch();
+	clrscr();
+	rewind(ic);
+	printf("\n\n IC :\n");
+	while(fscanf(ic,"%s %s %s %s",c.lbl,c.mnem,c.op1,c.op2)!=EOF)
+	{
+		printf("%s %s %s %s\n",c.lbl,c.mnem,c.op1,c.op2);
+	}
+
+}
+//Function Name :pass2
+//Arguments :MNT,MDT,IC,Expanded Code File
+//Description :Performs Pass 2 of Macroprocessor
+void pass2(FILE *mnt,FILE *mdt,FILE *ic,FILE *ec)
+{
+	struct IC c;
+	struct MNT m;
+	struct MDT d;
+	struct EC e;
+	char *ala[10];
+	int i,j,index;
+	rewind(mnt);
+	rewind(mdt);
+	rewind(ic);
+	while(fscanf(ic,"%s %s %s %s",c.lbl,c.mnem,c.op1,c.op2)!=EOF)
+	{
+		j=checkMNT(mnt,c.mnem);  //Macro call
+		if(j!=-1)
+		{
+			i=0;
+			if(strcmp(c.lbl,"*")!=0)         //prepare ALA for Actual Parameters
+			{
+				strcpy(ala[i++],c.lbl);
+			}
+			else
+			strcpy(ala[i++],"-");
+			if(strcmp(c.op1,"*")!=0)
+			{
+				ala[i]=strtok(c.op1,",");
+				while(ala[i])
+				{
+					ala[++i]=strtok(NULL,",");
+				}
+			}
+			while(fscanf(mdt,"%s %s %s %s %s",d.sno,d.lbl,d.mnem,d.op1,d.op2)!=EOF)
+			{
+
+					if(j==atoi(d.sno))       //Jump to the MDT index
+				break;
+			}
+			while(fscanf(mdt,"%s %s %s %s %s",d.sno,d.lbl,d.mnem,d.op1,d.op2)!=EOF)
+			{
+				if(strcmp(d.mnem,"MEND")!=0)
+				{
+					strcpy(e.mnem,d.mnem);  	//replace macro call with
+					index=check(d.lbl);             //lines of code in MDT
+					if(index!=-1)                   //replace index values of ALA
+					strcpy(e.lbl,ala[index]);       //with actual parameters
+					else
+					strcpy(e.lbl,d.lbl);
+					index=check(d.op1);
+					if(index!=-1)
+					strcpy(e.op1,ala[index]);
+					else
+					strcpy(e.op1,d.op1);
+					index=check(d.op2);
+					if(index!=-1)
+					strcpy(e.op2,ala[index]);
+					else
+					strcpy(e.op2,d.op2);
+					fprintf(ec,"%s %s %s %s\n",e.lbl,e.mnem,e.op1,e.op2);
+				}
+				else
+				{
+					rewind(mdt);
+					break;
+				}
+			}
+		}
+		else
+		fprintf(ec,"%s %s %s %s\n",c.lbl,c.mnem,c.op1,c.op2);
+	}
+	rewind(ec);
+	printf("\n\n Expanded Code :\n");
+	while(fscanf(ec,"%s %s %s %s\n",e.lbl,e.mnem,e.op1,e.op2)!=EOF)
+	printf("%s %s %s %s\n",e.lbl,e.mnem,e.op1,e.op2);
+}
+void main()
+{
+	FILE *fp,*mnt,*mdt,*ic,*ec;
+	struct Instruction in;
+	clrscr();
+	fp=fopen("./MACRO/COD1.TXT","r");
+	mnt=fopen("./MACRO/MNT.TXT","w+");
+	mdt=fopen("./MACRO/MDT.TXT","w+");
+	ic=fopen("./MACRO/IC.TXT","w+");
+	ec=fopen("./MACRO/EC.TXT","w+");
+	printf("\n Source Code :\n");
+	while(fscanf(fp,"%s%s%s%s",in.lbl,in.mnem,in.op1,in.op2)!=EOF)
+	{
+		printf("%s %s %s %s\n",in.lbl,in.mnem,in.op1,in.op2);
+	}
+	getch();
+	clrscr();
+	pass1(fp,mnt,mdt,ic);
+	getch();
+	pass2(mnt,mdt,ic,ec);
+	fclose(mnt);
+	fclose(mdt);
+	fclose(ic);
+	fclose(fp);
+	fclose(ec);
+	getch();
+}
